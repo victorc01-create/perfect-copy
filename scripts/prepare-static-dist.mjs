@@ -22,6 +22,7 @@ await writeFile(
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/btc-logo.png" />
     <title>BTC — Painel de Sinais Premium</title>
     <style>
       html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #07080d; }
