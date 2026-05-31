@@ -1623,7 +1623,7 @@ function checkSignals(){
       var op={id:id,tfNum:tN,tf:tf,dir:sig.dir,color:sig.color,conf:sig.conf,score:sig.score,
         entryPrice:frozenEntry,entryTs:periodStart,exitTs:aEnd(periodStart,TF[tf].min),
         /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-        emittedAt:periodStart+Math.floor(TF[tf].min*60000*2/3),
+        emittedAt:periodStart+TF[tf].entryMin*60000,
         exitPrice:null,status:'open',win:null,pnl:null,live:true};
       ops.unshift(op);
       tfOpenOp=op;
@@ -2073,7 +2073,7 @@ function render(){
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
           /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-          emittedAt:periodStart+Math.floor(TF[tfSnap].min*60000*2/3),
+          emittedAt:periodStart+TF[tfSnap].entryMin*60000,
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
