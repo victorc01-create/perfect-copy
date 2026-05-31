@@ -2072,7 +2072,8 @@ function render(){
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:sigSnap.color,
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
-          emittedAt:Date.now(),
+          /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
+          emittedAt:periodStart+Math.floor(TF[tfSnap].min*60000*2/3),
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
