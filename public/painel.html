@@ -1003,6 +1003,7 @@ var KIWIFY_LINK='https://pay.kiwify.com.br/Pxd4c8N';
 var PIX_PAYMENT_KEY='contato@btcsinais.com';
 var DELAY_MS=60*1000;
 var PENDING_FREE=[];
+var STATE_READY=false;
 /* ── Bloqueio interno pós-2 losses consecutivos por TF ─────────
    Nunca exposto na UI — apenas controla emissão de novas ops.
    Zera automaticamente ao vir o próximo WIN no TF bloqueado. */
@@ -2012,6 +2013,7 @@ function _setFOA(v){
   try{if(v)sessionStorage.setItem('_foa_'+LS_KEY,'1');else sessionStorage.removeItem('_foa_'+LS_KEY);}catch(e){}
 }
 function render(){
+  if(!STATE_READY)return;
   var c15=candles['15m'];if(!c15||!c15.length)return;
   var price=c15[c15.length-1].close;
   document.getElementById('px').textContent='$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -2620,6 +2622,8 @@ function syncVisitorsToServer(){
 /* Carrega do servidor antes de iniciar */
 loadOpsFromServer(function(){
   loadOps();reconcileOpenOps();purgeInvalidOps();recalcLossStreak();
+  STATE_READY=true;
+  render();renderOps();renderHist();renderStats();renderDailyTfCards();updateRates();
   updateGlobalBar();
   setInterval(updateGlobalBar,30000);
   setInterval(syncVisitorsToServer,60000);
@@ -2648,7 +2652,8 @@ loadOpsFromServer(function(){
       },_msLeft);
     }
   }
-  } /* end if(!isPremium) */
+  }else{_setFOA(false);}
+  /* end if(!isPremium) */
   updatePlanBadge();
 });
 var _strtbActive=document.querySelector('.strtb.active');if(_strtbActive)selStrat('ema',_strtbActive);
