@@ -2013,6 +2013,7 @@ function _setFOA(v){
   try{if(v)sessionStorage.setItem('_foa_'+LS_KEY,'1');else sessionStorage.removeItem('_foa_'+LS_KEY);}catch(e){}
 }
 function render(){
+  if(!STATE_READY)return;
   var c15=candles['15m'];if(!c15||!c15.length)return;
   var price=c15[c15.length-1].close;
   document.getElementById('px').textContent='$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
