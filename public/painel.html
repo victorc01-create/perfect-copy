@@ -1234,7 +1234,7 @@ function closePendingOps(){
     closed[op.id]=true;
     /* Preço de saída = close do candle da Binance no exitTs — fixo para todos os usuários */
     var ep=getExitPrice(op,op.tf)||op.entryPrice;
-    var win=op.dir==='CALL'?(ep<op.entryPrice):(ep>op.entryPrice);
+    var win=op.dir==='CALL'?(ep>op.entryPrice):(ep<op.entryPrice);
     /* Atualiza streak interno */
     if(win){_lossStreak[op.tf]=0;}else{_lossStreak[op.tf]=(_lossStreak[op.tf]||0)+1;}
     var pct=op.entryPrice?Math.abs((ep-op.entryPrice)/op.entryPrice*100).toFixed(3):'0.000';
@@ -1642,7 +1642,7 @@ function checkSignals(){
     closed[cid]=true;
     /* Preço de saída = close do candle da Binance no exitTs — fixo para todos os usuários */
     var exitPrice=getExitPrice(cop,tf)||cop.entryPrice;
-    var win=cop.dir==='CALL'?(exitPrice<cop.entryPrice):(exitPrice>cop.entryPrice);
+    var win=cop.dir==='CALL'?(exitPrice>cop.entryPrice):(exitPrice<cop.entryPrice);
     /* Atualiza streak interno — zera no WIN, incrementa no LOSS */
     if(win){_lossStreak[tf]=0;}else{_lossStreak[tf]=(_lossStreak[tf]||0)+1;}
     var pct=cop.entryPrice?Math.abs((exitPrice-cop.entryPrice)/cop.entryPrice*100).toFixed(3):'0.000';
@@ -1906,7 +1906,7 @@ async function buildHistOps(){
 
       var ep=c.open;
       var xp=exitCandle.close;
-      var win=sig.dir==='CALL'?(xp<ep):(xp>ep);
+      var win=sig.dir==='CALL'?(xp>ep):(xp<ep);
       var pct=Math.abs((xp-ep)/ep*100).toFixed(3);
       hist.push({id:hId,tf:tf,dir:sig.dir,color:sig.color,conf:sig.conf,score:sig.score,
         entryPrice:ep,entryTs:pStart,exitTs:pStart+pMs-1,
