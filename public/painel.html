@@ -2622,6 +2622,8 @@ function syncVisitorsToServer(){
 /* Carrega do servidor antes de iniciar */
 loadOpsFromServer(function(){
   loadOps();reconcileOpenOps();purgeInvalidOps();recalcLossStreak();
+  STATE_READY=true;
+  render();renderOps();renderHist();renderStats();renderDailyTfCards();updateRates();
   updateGlobalBar();
   setInterval(updateGlobalBar,30000);
   setInterval(syncVisitorsToServer,60000);
