@@ -1436,7 +1436,7 @@ function calcScore(cl,cs){
   var top=Math.max(bull,bear),margin=Math.abs(bull-bear);
   if(top<55||margin<18)return{dir:'AGUARDAR',color:'wait',conf:'—',score:top};
 
-  var dir=bull>bear?'CALL':'PUT';
+  var dir=bull>bear?'PUT':'CALL';
   var conf=top>=95?'81%':top>=78?'74%':top>=62?'67%':'60%';
   return{dir:dir,color:bull>bear?'call':'put',conf:conf,score:top};
 }
@@ -1492,7 +1492,7 @@ function calcScore1h(cl,cs){
   var top=Math.max(bull,bear),margin=Math.abs(bull-bear);
   if(top<58||margin<20)return{dir:'AGUARDAR',color:'wait',conf:'—',score:top};
 
-  var dir=bull>bear?'CALL':'PUT';
+  var dir=bull>bear?'PUT':'CALL';
   var conf=top>=100?'81%':top>=82?'74%':top>=65?'67%':'60%';
   return{dir:dir,color:bull>bear?'call':'put',conf:conf,score:top};
 }
