@@ -2110,6 +2110,7 @@ function render(){
     /* FREE vê direção só após 60s — verifica PENDING_FREE OU op salva recente */
     var _now2=Date.now();
     var freeLock=!isPremium()&&sig.color!=='wait'&&(
+      _now2<aStart(_now2,TF[tf].min)+DELAY_MS||
       PENDING_FREE.some(function(p){return p.op.tf===tf&&_now2<p.releaseAt;})||
       ops.some(function(o){
         if(o.tf!==tf||!o.live)return false;
