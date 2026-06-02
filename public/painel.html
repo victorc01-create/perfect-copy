@@ -2251,8 +2251,8 @@ function handleSignalFreePremium(op,now){
     return;
   }
   /* releaseAt = momento real da emissão + DELAY_MS — igual para todos */
-  var _eAt=op.emittedAt||op.entryTs||Date.now();
-  var releaseAt=_eAt+DELAY_MS;
+  var _eAt=signalDelayStart(op);
+  var releaseAt=signalReleaseAt(op);
   var msLeft=Math.max(0,releaseAt-Date.now());
   PENDING_FREE.push({op:op,releaseAt:releaseAt});
   showFreeCountdown(op,_eAt);
@@ -2271,7 +2271,7 @@ function showFreeCountdown(op,now){
   _countdownOpId=op.id;
   var TOTAL=DELAY_MS/1000,CIRC=565;
   /* startedAt = momento real da emissão do sinal (não o início do período) */
-  var startedAt=op.emittedAt||op.entryTs;
+  var startedAt=signalDelayStart(op);
   var overlay=document.createElement('div');overlay.id='freeCountdownOverlay';overlay.className='free-overlay-wrap';
   /* Calcula tempo já decorrido para iniciar o display no ponto certo */
   var initElapsed=Math.floor((Date.now()-startedAt)/1000);
