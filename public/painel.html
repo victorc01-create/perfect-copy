@@ -2638,17 +2638,16 @@ loadOpsFromServer(function(){
   setInterval(updateGlobalBar,30000);
   setInterval(syncVisitorsToServer,60000);
 
-  /* Ao recarregar: retoma countdown a partir do entryTs FIXO salvo */
+  /* Ao recarregar: só retoma se os 60s globais do ciclo ainda não terminaram */
   if(!isPremium()){
   var _pendingOp=ops.find(function(o){
-    var _ea=o.emittedAt||o.entryTs;
-    return o.live===true&&(o.status==='open'||o.status==='pending_close')&&(Date.now()-_ea)<DELAY_MS;
+    return o.live===true&&(o.status==='open'||o.status==='pending_close')&&Date.now()<signalReleaseAt(o);
   });
   if(_pendingOp){
     _setFOA(true);
-    /* releaseAt = emittedAt + DELAY_MS — mesmo ponto para todos os usuários */
-    var _eAtR=_pendingOp.emittedAt||_pendingOp.entryTs||Date.now();
-    var _releaseAt=_eAtR+DELAY_MS;
+    /* releaseAt = início do ciclo + DELAY_MS — mesmo ponto para todos os usuários */
+    var _eAtR=signalDelayStart(_pendingOp);
+    var _releaseAt=signalReleaseAt(_pendingOp);
     var _msLeft=Math.max(0,_releaseAt-Date.now());
     PENDING_FREE.push({op:_pendingOp,releaseAt:_releaseAt});
     showFreeCountdown(_pendingOp,_eAtR);
