@@ -1067,8 +1067,18 @@ function rebuildEmitted(){
       var d=new Date(ps);d.setUTCHours(0,0,0,0);
       var pIdx=Math.floor((ps-d.getTime())/(TF[tf].min*60000));
       var pKey=tf+':'+pIdx;
-      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice};
+      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,emittedAt:ps};
     });
+  });
+}
+function signalDelayStart(op){
+  if(op&&op.tf&&TF[op.tf]&&op.entryTs)return aStart(op.entryTs,TF[op.tf].min);
+  return op&&op.emittedAt?op.emittedAt:(op&&op.entryTs?op.entryTs:Date.now());
+}
+function signalReleaseAt(op){return signalDelayStart(op)+DELAY_MS;}
+function normalizeSignalTimes(){
+  ops.forEach(function(o){
+    if(o.live===true&&o.tf&&TF[o.tf]&&o.entryTs)o.emittedAt=signalDelayStart(o);
   });
 }
 var _syncTimer=null;
