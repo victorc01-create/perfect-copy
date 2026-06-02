@@ -2085,13 +2085,13 @@ function render(){
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:sigSnap.color,
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
-          /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-          emittedAt:Date.now(),
+          /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
+          emittedAt:periodStart,
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
-        var _eAt2=op.emittedAt||Date.now();
-        var releaseAt=_eAt2+DELAY_MS;
+        var _eAt2=signalDelayStart(op);
+        var releaseAt=signalReleaseAt(op);
         var msLeft=Math.max(0,releaseAt-Date.now());
         PENDING_FREE.push({op:op,releaseAt:releaseAt});
         showFreeCountdown(op,_eAt2);
@@ -2113,8 +2113,7 @@ function render(){
       PENDING_FREE.some(function(p){return p.op.tf===tf&&_now2<p.releaseAt;})||
       ops.some(function(o){
         if(o.tf!==tf||!o.live)return false;
-        var ea=o.emittedAt||o.entryTs;
-        return _now2-ea<DELAY_MS;
+        return _now2<signalReleaseAt(o);
       })
     );
     sh+='<div class="sc '+(freeLock?'':cls)+'" style="'+(freeLock?'background:var(--bg2);border-color:var(--border2);cursor:pointer':'')+'" '+(freeLock?'onclick="openUpgrade()"':'')+'>'+
