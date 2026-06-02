@@ -1067,8 +1067,18 @@ function rebuildEmitted(){
       var d=new Date(ps);d.setUTCHours(0,0,0,0);
       var pIdx=Math.floor((ps-d.getTime())/(TF[tf].min*60000));
       var pKey=tf+':'+pIdx;
-      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice};
+      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,emittedAt:ps};
     });
+  });
+}
+function signalDelayStart(op){
+  if(op&&op.tf&&TF[op.tf]&&op.entryTs)return aStart(op.entryTs,TF[op.tf].min);
+  return op&&op.emittedAt?op.emittedAt:(op&&op.entryTs?op.entryTs:Date.now());
+}
+function signalReleaseAt(op){return signalDelayStart(op)+DELAY_MS;}
+function normalizeSignalTimes(){
+  ops.forEach(function(o){
+    if(o.live===true&&o.tf&&TF[o.tf]&&o.entryTs)o.emittedAt=signalDelayStart(o);
   });
 }
 var _syncTimer=null;
@@ -1170,6 +1180,7 @@ function loadOps(){
         if(k.indexOf(tf+':')===0&&parseInt(k.split(':')[1])<curIdx)delete emitted[k];
       });
     });
+    normalizeSignalTimes();
     rebuildEmitted();
     var histCount=ops.filter(function(o){return!o.live;}).length;
     log('Histórico restaurado: '+(ops.length-histCount)+' live + '+histCount+' hist, emitted: '+Object.keys(emitted).length);
@@ -1620,11 +1631,11 @@ function checkSignals(){
         frozenEntry=best1m.open;
       }
       if(!frozenEntry||frozenEntry<=0){log('⚠️ Sem preço para '+tf+' — op aguardando');gId--;tfId[tf]--;return;}
-      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart};
+      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,emittedAt:periodStart};
       var op={id:id,tfNum:tN,tf:tf,dir:sig.dir,color:sig.color,conf:sig.conf,score:sig.score,
         entryPrice:frozenEntry,entryTs:periodStart,exitTs:aEnd(periodStart,TF[tf].min),
-        /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-        emittedAt:Date.now(),
+        /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
+        emittedAt:periodStart,
         exitPrice:null,status:'open',win:null,pnl:null,live:true};
       ops.unshift(op);
       tfOpenOp=op;
@@ -1634,7 +1645,7 @@ function checkSignals(){
       saveOps();changed=true;
     } else if(tfOpenOp&&!emitted[pKey]){
       /* Op aberta mas emitted perdeu o registro (ex: reload) — reconstrói */
-      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice};
+      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,emittedAt:signalDelayStart(tfOpenOp)};
       saveOps();
     }
     var eRec=emitted[pKey];if(!eRec)return;
@@ -1684,10 +1695,10 @@ function renderOps(){
   if(!showing.length){panel.innerHTML='<div class="aomt">Aguardando próxima análise...</div>';return;}
   panel.innerHTML=showing.map(function(op){
     var pend=PENDING_FREE.filter(function(p){return p.op.id===op.id;})[0];
-    var _eaOp=op.emittedAt||op.entryTs;
-    var inDelay=!isPremium()&&op.live===true&&(now-_eaOp)<DELAY_MS;
+    var _eaOp=signalDelayStart(op);
+    var inDelay=!isPremium()&&op.live===true&&now<signalReleaseAt(op);
     if(inDelay){
-      var delayRem=Math.max(0,Math.ceil((_eaOp+DELAY_MS-now)/1000));
+      var delayRem=Math.max(0,Math.ceil((signalReleaseAt(op)-now)/1000));
       return '<div class="aoc" style="background:var(--bg2);border-color:var(--border2)">'+
         '<div class="aonb">#'+op.id+'</div>'+
         '<div style="font-size:28px;min-width:44px;text-align:center;color:var(--text3)">🔒</div>'+
@@ -1752,12 +1763,12 @@ function renderHist(){
     var isWait=o.status==='wait';
     var isMissed=o.missed===true;
     var rowStyle=isWait?'opacity:.5':isMissed?'border-left:2px solid var(--yellow)':'';
-    var _eaH2=o.emittedAt||o.entryTs;
-    var inPendingDelay=!isPremium()&&o.live===true&&(Date.now()-_eaH2)<DELAY_MS;
+    var _eaH2=signalDelayStart(o);
+    var inPendingDelay=!isPremium()&&o.live===true&&Date.now()<signalReleaseAt(o);
     /* Se está no último segundo do delay, agenda re-render automático */
     if(!isPremium()&&o.live===true){
-      var _eaMs=o.emittedAt||o.entryTs;
-      var msLeft=DELAY_MS-(Date.now()-_eaMs);
+      var _eaMs=signalDelayStart(o);
+      var msLeft=signalReleaseAt(o)-Date.now();
       if(msLeft>0&&msLeft<DELAY_MS){
         setTimeout(function(){renderHist();renderOps();},msLeft+100);
       }
@@ -2074,13 +2085,13 @@ function render(){
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:sigSnap.color,
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
-          /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-          emittedAt:Date.now(),
+          /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
+          emittedAt:periodStart,
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
-        var _eAt2=op.emittedAt||Date.now();
-        var releaseAt=_eAt2+DELAY_MS;
+        var _eAt2=signalDelayStart(op);
+        var releaseAt=signalReleaseAt(op);
         var msLeft=Math.max(0,releaseAt-Date.now());
         PENDING_FREE.push({op:op,releaseAt:releaseAt});
         showFreeCountdown(op,_eAt2);
@@ -2099,11 +2110,11 @@ function render(){
     /* FREE vê direção só após 60s — verifica PENDING_FREE OU op salva recente */
     var _now2=Date.now();
     var freeLock=!isPremium()&&sig.color!=='wait'&&(
+      _now2<aStart(_now2,TF[tf].min)+DELAY_MS||
       PENDING_FREE.some(function(p){return p.op.tf===tf&&_now2<p.releaseAt;})||
       ops.some(function(o){
         if(o.tf!==tf||!o.live)return false;
-        var ea=o.emittedAt||o.entryTs;
-        return _now2-ea<DELAY_MS;
+        return _now2<signalReleaseAt(o);
       })
     );
     sh+='<div class="sc '+(freeLock?'':cls)+'" style="'+(freeLock?'background:var(--bg2);border-color:var(--border2);cursor:pointer':'')+'" '+(freeLock?'onclick="openUpgrade()"':'')+'>'+
@@ -2241,8 +2252,8 @@ function handleSignalFreePremium(op,now){
     return;
   }
   /* releaseAt = momento real da emissão + DELAY_MS — igual para todos */
-  var _eAt=op.emittedAt||op.entryTs||Date.now();
-  var releaseAt=_eAt+DELAY_MS;
+  var _eAt=signalDelayStart(op);
+  var releaseAt=signalReleaseAt(op);
   var msLeft=Math.max(0,releaseAt-Date.now());
   PENDING_FREE.push({op:op,releaseAt:releaseAt});
   showFreeCountdown(op,_eAt);
@@ -2261,7 +2272,7 @@ function showFreeCountdown(op,now){
   _countdownOpId=op.id;
   var TOTAL=DELAY_MS/1000,CIRC=565;
   /* startedAt = momento real da emissão do sinal (não o início do período) */
-  var startedAt=op.emittedAt||op.entryTs;
+  var startedAt=signalDelayStart(op);
   var overlay=document.createElement('div');overlay.id='freeCountdownOverlay';overlay.className='free-overlay-wrap';
   /* Calcula tempo já decorrido para iniciar o display no ponto certo */
   var initElapsed=Math.floor((Date.now()-startedAt)/1000);
@@ -2628,17 +2639,16 @@ loadOpsFromServer(function(){
   setInterval(updateGlobalBar,30000);
   setInterval(syncVisitorsToServer,60000);
 
-  /* Ao recarregar: retoma countdown a partir do entryTs FIXO salvo */
+  /* Ao recarregar: só retoma se os 60s globais do ciclo ainda não terminaram */
   if(!isPremium()){
   var _pendingOp=ops.find(function(o){
-    var _ea=o.emittedAt||o.entryTs;
-    return o.live===true&&(o.status==='open'||o.status==='pending_close')&&(Date.now()-_ea)<DELAY_MS;
+    return o.live===true&&(o.status==='open'||o.status==='pending_close')&&Date.now()<signalReleaseAt(o);
   });
   if(_pendingOp){
     _setFOA(true);
-    /* releaseAt = emittedAt + DELAY_MS — mesmo ponto para todos os usuários */
-    var _eAtR=_pendingOp.emittedAt||_pendingOp.entryTs||Date.now();
-    var _releaseAt=_eAtR+DELAY_MS;
+    /* releaseAt = início do ciclo + DELAY_MS — mesmo ponto para todos os usuários */
+    var _eAtR=signalDelayStart(_pendingOp);
+    var _releaseAt=signalReleaseAt(_pendingOp);
     var _msLeft=Math.max(0,_releaseAt-Date.now());
     PENDING_FREE.push({op:_pendingOp,releaseAt:_releaseAt});
     showFreeCountdown(_pendingOp,_eAtR);
