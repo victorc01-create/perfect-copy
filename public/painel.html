@@ -1180,6 +1180,7 @@ function loadOps(){
         if(k.indexOf(tf+':')===0&&parseInt(k.split(':')[1])<curIdx)delete emitted[k];
       });
     });
+    normalizeSignalTimes();
     rebuildEmitted();
     var histCount=ops.filter(function(o){return!o.live;}).length;
     log('Histórico restaurado: '+(ops.length-histCount)+' live + '+histCount+' hist, emitted: '+Object.keys(emitted).length);
@@ -1630,11 +1631,11 @@ function checkSignals(){
         frozenEntry=best1m.open;
       }
       if(!frozenEntry||frozenEntry<=0){log('⚠️ Sem preço para '+tf+' — op aguardando');gId--;tfId[tf]--;return;}
-      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart};
+      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,emittedAt:periodStart};
       var op={id:id,tfNum:tN,tf:tf,dir:sig.dir,color:sig.color,conf:sig.conf,score:sig.score,
         entryPrice:frozenEntry,entryTs:periodStart,exitTs:aEnd(periodStart,TF[tf].min),
-        /* emittedAt determinístico: 2/3 do período — mesmo instante para todos os usuários */
-        emittedAt:Date.now(),
+        /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
+        emittedAt:periodStart,
         exitPrice:null,status:'open',win:null,pnl:null,live:true};
       ops.unshift(op);
       tfOpenOp=op;
@@ -1644,7 +1645,7 @@ function checkSignals(){
       saveOps();changed=true;
     } else if(tfOpenOp&&!emitted[pKey]){
       /* Op aberta mas emitted perdeu o registro (ex: reload) — reconstrói */
-      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice};
+      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,emittedAt:signalDelayStart(tfOpenOp)};
       saveOps();
     }
     var eRec=emitted[pKey];if(!eRec)return;
