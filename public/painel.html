@@ -1944,11 +1944,11 @@ async function buildHistOps(){
 }/* Progress */
 function renderProg(){
   document.getElementById('pgrid').innerHTML=ALL_TFS.map(function(tf){
-    var w=getWin(tf),p=Math.min(100,w.pct).toFixed(1),open=w.inWindow||w.inEntryWindow;
-    return '<div class="pc"><div class="pn">'+TF[tf].label+'</div><div class="pt"><div class="pf '+(open?'wo':'')+'" style="width:'+p+'%"></div></div><div class="pm"><span>'+(open?'<span class="wbg">✦ JANELA</span>':fMs(w.remaining)+' para abrir')+'</span><span>'+Math.round(w.pct)+'%</span></div></div>';
+    var w=getWin(tf),p=Math.min(100,w.pct).toFixed(1);
+    return '<div class="pc"><div class="pn">'+TF[tf].label+'</div><div class="pt"><div class="pf '+(w.inWindow?'wo':'')+'" style="width:'+p+'%"></div></div><div class="pm"><span>'+(w.inWindow?'<span class="wbg">✦ JANELA</span>':fMs(w.remaining)+' para abrir')+'</span><span>'+Math.round(w.pct)+'%</span></div></div>';
   }).join('');
   document.getElementById('chips').innerHTML=ALL_TFS.map(function(tf){
-    var w=getWin(tf),open=w.inWindow||w.inEntryWindow;return '<span class="chip '+(open?'open':'')+'">'+TF[tf].label+': '+(open?'✦ ABERTA':fMs(w.remaining))+'</span>';
+    var w=getWin(tf);return '<span class="chip '+(w.inWindow?'open':'')+'">'+TF[tf].label+': '+(w.inWindow?'✦ ABERTA':fMs(w.remaining))+'</span>';
   }).join('');
 }
 
