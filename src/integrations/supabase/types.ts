@@ -14,7 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      btc_global_state: {
+        Row: {
+          key: string
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          state?: Json
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
