@@ -1168,31 +1168,16 @@ var _syncTimer=null;
    WEBSOCKET — Sincronização em tempo real
    Todos os usuários veem exatamente a mesma tela
    ═══════════════════════════════════════════════════════ */
-var _ws=null,_wsReady=false,_wsInitCb=null,_wsReconnectTimer=null,_wsSyncTimer=null;
-var WS_URL=(location.protocol==='https:'?'wss://':'ws://')+location.hostname+':3000';
+var _wsReady=true,_wsSyncTimer=null;
+var GLOBAL_STATE_URL='/api/public/btc-state';
+var GLOBAL_STATE_KEY='__SUPABASE_PUBLISHABLE_KEY__';
 
 function wsConnect(onReadyCb){
-  if(_wsReconnectTimer){clearTimeout(_wsReconnectTimer);_wsReconnectTimer=null;}
-  try{_ws=new WebSocket(WS_URL);}catch(e){log('WS indisponível — offline');if(onReadyCb)onReadyCb();return;}
-  _ws.onopen=function(){
-    _wsReady=true;log('🟢 WebSocket conectado');
-    _ws.send(JSON.stringify({type:'AUTH',uid:USER_UID}));
-  };
-  _ws.onmessage=function(e){
-    var msg;try{msg=JSON.parse(e.data);}catch(ex){return;}
-    switch(msg.type){
-      case 'PING': _ws.send(JSON.stringify({type:'PONG'}));break;
-      case 'INIT': _applyServerState(msg);if(_wsInitCb){_wsInitCb();_wsInitCb=null;}break;
-      case 'PLAN': _applyPlan(msg.plan,msg.subId);break;
-      case 'SYNC_STATE': _applyServerState(msg);break;
-    }
-  };
-  _ws.onclose=function(){_wsReady=false;log('🔴 WS desconectado — reconectando em 4s...');_wsReconnectTimer=setTimeout(function(){wsConnect(null);},4000);};
-  _ws.onerror=function(){_wsReady=false;};
-  if(onReadyCb){
-    _wsInitCb=onReadyCb;
-    setTimeout(function(){if(_wsInitCb){log('⚠️ WS timeout — offline');var cb=_wsInitCb;_wsInitCb=null;cb();}},5000);
-  }
+  fetch(GLOBAL_STATE_URL,{cache:'no-store'}).then(function(r){return r.json();}).then(function(msg){
+    if(msg&&msg.now&&window.__SERVER_TIME_SYNC__)window.__SERVER_TIME_SYNC__(msg.now);
+    if(msg&&msg.state)_applyServerState(msg.state);
+    if(onReadyCb)onReadyCb();
+  }).catch(function(){log('Estado central indisponível — usando cache local');if(onReadyCb)onReadyCb();});
 }
 function _applyServerState(msg){
   try{
@@ -1224,16 +1209,14 @@ function saveOps(){
   }catch(e){}
 }
 function _wsSendState(){
-  if(!_wsReady||!_ws||_ws.readyState!==1)return;
   var cutoff=Date.now()-(8*24*60*60*1000);
   var histToSave=ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;});
-  _ws.send(JSON.stringify({
-    type:   'SYNC_STATE',
+  fetch(GLOBAL_STATE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':GLOBAL_STATE_KEY},body:JSON.stringify({
     ops:    JSON.stringify(ops.filter(function(o){return o.live===true;})),
     hist:   JSON.stringify(histToSave),
     state:  JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}),
     emitted:JSON.stringify(emitted)
-  }));
+  })}).catch(function(){});
 }
 function syncToServer(){_wsSendState();}
 function loadOpsFromServer(cb){wsConnect(cb);}
