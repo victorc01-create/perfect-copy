@@ -1170,7 +1170,7 @@ var _syncTimer=null;
    ═══════════════════════════════════════════════════════ */
 var _wsReady=true,_wsSyncTimer=null;
 var GLOBAL_STATE_URL='/api/public/btc-state';
-var GLOBAL_STATE_KEY='__SUPABASE_PUBLISHABLE_KEY__';
+var GLOBAL_STATE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eXR5YmxvdWx2cWtmaXp6dmZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDQzNDMsImV4cCI6MjA5NjAyMDM0M30.HOHKYGMilVctTJXOJ73bs1FR61bXKRzUCmraJxYrJ3Q';
 
 function wsConnect(onReadyCb){
   fetch(GLOBAL_STATE_URL,{cache:'no-store'}).then(function(r){return r.json();}).then(function(msg){

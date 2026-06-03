@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTimeRouteImport } from './routes/api/time'
 import { Route as ApiPublicBtcStateRouteImport } from './routes/api/public/btc-state'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTimeRoute = ApiTimeRouteImport.update({
+  id: '/api/time',
+  path: '/api/time',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicBtcStateRoute = ApiPublicBtcStateRouteImport.update({
@@ -25,27 +31,31 @@ const ApiPublicBtcStateRoute = ApiPublicBtcStateRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/time': typeof ApiTimeRoute
   '/api/public/btc-state': typeof ApiPublicBtcStateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/time': typeof ApiTimeRoute
   '/api/public/btc-state': typeof ApiPublicBtcStateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/time': typeof ApiTimeRoute
   '/api/public/btc-state': typeof ApiPublicBtcStateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/btc-state'
+  fullPaths: '/' | '/api/time' | '/api/public/btc-state'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/btc-state'
-  id: '__root__' | '/' | '/api/public/btc-state'
+  to: '/' | '/api/time' | '/api/public/btc-state'
+  id: '__root__' | '/' | '/api/time' | '/api/public/btc-state'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiTimeRoute: typeof ApiTimeRoute
   ApiPublicBtcStateRoute: typeof ApiPublicBtcStateRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/time': {
+      id: '/api/time'
+      path: '/api/time'
+      fullPath: '/api/time'
+      preLoaderRoute: typeof ApiTimeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/btc-state': {
@@ -70,8 +87,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiTimeRoute: ApiTimeRoute,
   ApiPublicBtcStateRoute: ApiPublicBtcStateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
