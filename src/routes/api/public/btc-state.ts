@@ -12,6 +12,11 @@ const StateSchema = z
   })
   .passthrough();
 
+type StoredState = {
+  state?: unknown;
+  updated_at?: string | null;
+};
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -37,7 +42,8 @@ export const Route = createFileRoute("/api/public/btc-state")({
 
         if (error) return json({ error: error.message, now: Date.now() }, 500);
 
-        return json({ state: data?.state ?? {}, updatedAt: data?.updated_at ?? null, now: Date.now() });
+        const row = data as StoredState | null;
+        return json({ state: row?.state ?? {}, updatedAt: row?.updated_at ?? null, now: Date.now() });
       },
       POST: async ({ request }) => {
         if (!hasValidApiKey(request)) return json({ error: "Unauthorized" }, 401);
