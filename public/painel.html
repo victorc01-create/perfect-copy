@@ -2569,6 +2569,14 @@ function revealFreeSignal(op){
     if(metaEl)metaEl.innerHTML='A janela de entrada do ciclo de <b>'+TF[op.tf].label+'</b> encerrou.<br>A análise era <b>'+dirLabel(op.dir)+'</b> — mas chegou tarde para uso.<br><span style="color:#ffb300;font-size:11px">⚡ Premium recebeu esta análise na hora certa</span><br><br><button onclick="openUpgrade()" style="margin-top:8px;padding:10px 22px;background:#F7931A;color:#000;border:none;border-radius:8px;font-family:Space Mono,monospace;font-size:12px;font-weight:700;cursor:pointer">Ver próxima análise em tempo real</button>';
   }
   if(p2)p2.style.display='flex';
+  /* Mantém a tela de revelação visível por 2 segundos antes de fechar automaticamente */
+  var revealOpId=op.id;
+  _countdownOpId=null; /* impede que closeFreeCountdownIfSame feche antes dos 2s */
+  setTimeout(function(){
+    var el=document.getElementById('freeCountdownOverlay');
+    if(el){el.classList.add('leaving');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);document.body.style.overflow='';},400);}
+    renderHist();renderStats();
+  },2000);
 }
 function skipFreeCountdown(opId){
   var overlay=document.getElementById('freeCountdownOverlay');
