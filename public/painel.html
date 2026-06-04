@@ -1,6 +1,70 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- ============ ANTI-CLONE / ANTI-COPY PROTECTION ============ -->
+<meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+<meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self' https://*.lovable.app https://bitcoinsignalfree.com https://*.bitcoinsignalfree.com">
+<script>
+(function(){
+  try {
+    var host = (location.hostname || '').toLowerCase();
+    var allowed = (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === 'bitcoinsignalfree.com' ||
+      host.endsWith('.bitcoinsignalfree.com') ||
+      host.endsWith('.lovable.app') ||
+      host.endsWith('.lovable.dev') ||
+      host.endsWith('.lovableproject.com')
+    );
+    if (!allowed) {
+      document.documentElement.innerHTML = '<body style="margin:0;background:#07080d;color:#f7931a;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:20px;"><div><h1>Acesso nao autorizado</h1><p>Este conteudo e propriedade exclusiva de bitcoinsignalfree.com</p></div></body>';
+      throw new Error('blocked');
+    }
+    // Block embedding from non-allowed parents
+    if (window.top !== window.self) {
+      try {
+        var parentHost = (new URL(document.referrer)).hostname.toLowerCase();
+        var parentOk = (
+          parentHost === host ||
+          parentHost === 'bitcoinsignalfree.com' ||
+          parentHost.endsWith('.bitcoinsignalfree.com') ||
+          parentHost.endsWith('.lovable.app') ||
+          parentHost.endsWith('.lovable.dev') ||
+          parentHost.endsWith('.lovableproject.com') ||
+          parentHost === 'localhost' || parentHost === '127.0.0.1'
+        );
+        if (!parentOk) { window.top.location = location.href; }
+      } catch(e) { try { window.top.location = location.href; } catch(_){} }
+    }
+    // Disable right-click, text selection, drag, common devtools shortcuts
+    document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, true);
+    document.addEventListener('dragstart', function(e){ e.preventDefault(); }, true);
+    document.addEventListener('selectstart', function(e){
+      var t = e.target; var tag = (t && t.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+      e.preventDefault();
+    }, true);
+    document.addEventListener('copy', function(e){
+      var t = e.target; var tag = (t && t.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (t && t.isContentEditable)) return;
+      e.preventDefault();
+    }, true);
+    document.addEventListener('keydown', function(e){
+      var k = (e.key||'').toLowerCase();
+      if (e.key === 'F12') { e.preventDefault(); return false; }
+      if (e.ctrlKey && e.shiftKey && (k==='i'||k==='j'||k==='c')) { e.preventDefault(); return false; }
+      if (e.ctrlKey && (k==='u'||k==='s')) { e.preventDefault(); return false; }
+      if (e.metaKey && e.altKey && (k==='i'||k==='j'||k==='c')) { e.preventDefault(); return false; }
+    }, true);
+    // CSS: disable selection for non-input elements
+    var st = document.createElement('style');
+    st.textContent = 'html,body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;-webkit-touch-callout:none;}input,textarea,[contenteditable="true"]{-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;}img{-webkit-user-drag:none;-khtml-user-drag:none;-moz-user-drag:none;-o-user-drag:none;user-drag:none;pointer-events:auto;}';
+    (document.head||document.documentElement).appendChild(st);
+  } catch(e) {}
+})();
+</script>
+<!-- ============ END ANTI-CLONE ============ -->
 <!-- LOVABLE_SERVER_CLOCK_SYNC -->
 <script>
 (function(){
