@@ -2195,13 +2195,18 @@ function renderProg(){
 function mergeHistOps(hist){
   if(!hist||!hist.length)return;
   ops=ops.filter(function(o){return o.live===true;});
+  var liveKeys={};
+  ops.forEach(function(x){if(x.tf&&TF[x.tf]&&x.entryTs)liveKeys[x.tf+':'+aStart(x.entryTs,TF[x.tf].min)]=true;});
   hist.forEach(function(o){
-    var ps=aStart(o.entryTs,TF[o.tf].min);
-    var conflict=ops.some(function(x){return x.live===true&&x.tf===o.tf&&aStart(x.entryTs,TF[o.tf].min)===ps;});
-    if(!conflict)ops.push(o);
+    if(!o||!o.tf||!TF[o.tf]||!o.entryTs)return;
+    var k=o.tf+':'+aStart(o.entryTs,TF[o.tf].min);
+    if(liveKeys[k])return;
+    ops.push(o);
   });
+  ops=dedupById(ops);
   ops.sort(function(a,b){return b.entryTs-a.entryTs;});
 }
+
 
 function clockTick(){
   var n=new Date();
