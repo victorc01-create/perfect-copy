@@ -1394,6 +1394,7 @@ function loadOps(){
       else if(o.dir==='PUT')o.color='put';
     });
     rebuildEmitted();
+    ops=dedupById(ops);
     var histCount=ops.filter(function(o){return!o.live;}).length;
     log('Histórico restaurado: '+(ops.length-histCount)+' live + '+histCount+' hist, emitted: '+Object.keys(emitted).length);
   }catch(e){log('Erro ao restaurar: '+e);}
