@@ -57,12 +57,34 @@ export const Route = createFileRoute("/api/public/btc-state")({
           return json({ error: "Invalid payload" }, 400);
         }
 
+        const dedupById = (raw: string | undefined, fallback: string) => {
+          if (!raw) return fallback;
+          try {
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return raw;
+            const seen = new Set<string>();
+            const out: unknown[] = [];
+            for (const o of arr) {
+              const id = (o as { id?: unknown })?.id;
+              if (id == null) continue;
+              const k = String(id);
+              if (seen.has(k)) continue;
+              seen.add(k);
+              out.push(o);
+            }
+            return JSON.stringify(out);
+          } catch {
+            return raw;
+          }
+        };
+
         const state = {
-          ops: parsed.ops ?? "[]",
-          hist: parsed.hist ?? "[]",
+          ops: dedupById(parsed.ops, "[]"),
+          hist: dedupById(parsed.hist, "[]"),
           state: parsed.state ?? "{}",
           emitted: parsed.emitted ?? "{}",
         };
+
 
         const { error } = await supabaseAdmin.from("btc_global_state" as never).upsert({
           key: "main",

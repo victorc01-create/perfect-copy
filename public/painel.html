@@ -1325,11 +1325,22 @@ function _applyPlan(plan,subId){
   updatePlanBadge();renderHist();renderStats();renderOps();renderDailyTfCards();
   log('📋 Plano: '+plan);
 }
+function dedupById(arr){
+  var seen={},out=[];
+  for(var i=0;i<arr.length;i++){
+    var o=arr[i];if(!o||o.id==null)continue;
+    var k=String(o.id);
+    if(seen[k])continue;
+    seen[k]=true;out.push(o);
+  }
+  return out;
+}
 function saveOps(){
   try{
-    localStorage.setItem(LS_KEY,JSON.stringify(ops.filter(function(o){return o.live===true;})));
+    ops=dedupById(ops);
+    localStorage.setItem(LS_KEY,JSON.stringify(dedupById(ops.filter(function(o){return o.live===true;}))));
     var cutoff=Date.now()-(8*24*60*60*1000);
-    var histToSave=ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;});
+    var histToSave=dedupById(ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;}));
     localStorage.setItem(LS_HIST,JSON.stringify(histToSave));
     localStorage.setItem(LS_STATE,JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}));
     localStorage.setItem(LS_EMITTED,JSON.stringify(emitted));
@@ -1339,9 +1350,10 @@ function saveOps(){
 }
 function _wsSendState(){
   var cutoff=Date.now()-(8*24*60*60*1000);
-  var histToSave=ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;});
+  var liveSave=dedupById(ops.filter(function(o){return o.live===true;}));
+  var histToSave=dedupById(ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;}));
   fetch(GLOBAL_STATE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':GLOBAL_STATE_KEY},body:JSON.stringify({
-    ops:    JSON.stringify(ops.filter(function(o){return o.live===true;})),
+    ops:    JSON.stringify(liveSave),
     hist:   JSON.stringify(histToSave),
     state:  JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}),
     emitted:JSON.stringify(emitted)
@@ -1349,6 +1361,7 @@ function _wsSendState(){
 }
 function syncToServer(){_wsSendState();}
 function loadOpsFromServer(cb){wsConnect(cb);}
+
 function loadOps(){
   try{
     var raw=localStorage.getItem(LS_KEY);
@@ -1381,6 +1394,7 @@ function loadOps(){
       else if(o.dir==='PUT')o.color='put';
     });
     rebuildEmitted();
+    ops=dedupById(ops);
     var histCount=ops.filter(function(o){return!o.live;}).length;
     log('Histórico restaurado: '+(ops.length-histCount)+' live + '+histCount+' hist, emitted: '+Object.keys(emitted).length);
   }catch(e){log('Erro ao restaurar: '+e);}
@@ -2181,13 +2195,18 @@ function renderProg(){
 function mergeHistOps(hist){
   if(!hist||!hist.length)return;
   ops=ops.filter(function(o){return o.live===true;});
+  var liveKeys={};
+  ops.forEach(function(x){if(x.tf&&TF[x.tf]&&x.entryTs)liveKeys[x.tf+':'+aStart(x.entryTs,TF[x.tf].min)]=true;});
   hist.forEach(function(o){
-    var ps=aStart(o.entryTs,TF[o.tf].min);
-    var conflict=ops.some(function(x){return x.live===true&&x.tf===o.tf&&aStart(x.entryTs,TF[o.tf].min)===ps;});
-    if(!conflict)ops.push(o);
+    if(!o||!o.tf||!TF[o.tf]||!o.entryTs)return;
+    var k=o.tf+':'+aStart(o.entryTs,TF[o.tf].min);
+    if(liveKeys[k])return;
+    ops.push(o);
   });
+  ops=dedupById(ops);
   ops.sort(function(a,b){return b.entryTs-a.entryTs;});
 }
+
 
 function clockTick(){
   var n=new Date();
