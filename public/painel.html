@@ -1325,11 +1325,22 @@ function _applyPlan(plan,subId){
   updatePlanBadge();renderHist();renderStats();renderOps();renderDailyTfCards();
   log('📋 Plano: '+plan);
 }
+function dedupById(arr){
+  var seen={},out=[];
+  for(var i=0;i<arr.length;i++){
+    var o=arr[i];if(!o||o.id==null)continue;
+    var k=String(o.id);
+    if(seen[k])continue;
+    seen[k]=true;out.push(o);
+  }
+  return out;
+}
 function saveOps(){
   try{
-    localStorage.setItem(LS_KEY,JSON.stringify(ops.filter(function(o){return o.live===true;})));
+    ops=dedupById(ops);
+    localStorage.setItem(LS_KEY,JSON.stringify(dedupById(ops.filter(function(o){return o.live===true;}))));
     var cutoff=Date.now()-(8*24*60*60*1000);
-    var histToSave=ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;});
+    var histToSave=dedupById(ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;}));
     localStorage.setItem(LS_HIST,JSON.stringify(histToSave));
     localStorage.setItem(LS_STATE,JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}));
     localStorage.setItem(LS_EMITTED,JSON.stringify(emitted));
@@ -1339,9 +1350,10 @@ function saveOps(){
 }
 function _wsSendState(){
   var cutoff=Date.now()-(8*24*60*60*1000);
-  var histToSave=ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;});
+  var liveSave=dedupById(ops.filter(function(o){return o.live===true;}));
+  var histToSave=dedupById(ops.filter(function(o){return o.live===false&&o.entryTs>cutoff;}));
   fetch(GLOBAL_STATE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':GLOBAL_STATE_KEY},body:JSON.stringify({
-    ops:    JSON.stringify(ops.filter(function(o){return o.live===true;})),
+    ops:    JSON.stringify(liveSave),
     hist:   JSON.stringify(histToSave),
     state:  JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}),
     emitted:JSON.stringify(emitted)
@@ -1349,6 +1361,7 @@ function _wsSendState(){
 }
 function syncToServer(){_wsSendState();}
 function loadOpsFromServer(cb){wsConnect(cb);}
+
 function loadOps(){
   try{
     var raw=localStorage.getItem(LS_KEY);
