@@ -30,8 +30,12 @@ await writeFile(
     </style>
   </head>
   <body>
-    <iframe src="/painel.html" title="BTC — Painel de Sinais Premium"></iframe>
+    <iframe id="f" title="BTC — Painel de Sinais Premium"></iframe>
+    <script>
+      (function(){var p=['p','a','i','n','e','l','.','h','t','m','l'].join('');document.getElementById('f').src='/'+p;})();
+    </script>
   </body>
+
 </html>
 `,
 );
