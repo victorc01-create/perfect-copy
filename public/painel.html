@@ -1303,16 +1303,26 @@ var _syncTimer=null;
 var _wsReady=true,_wsSyncTimer=null;
 var GLOBAL_STATE_URL='/api/public/btc-state';
 var GLOBAL_STATE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eXR5YmxvdWx2cWtmaXp6dmZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDQzNDMsImV4cCI6MjA5NjAyMDM0M30.HOHKYGMilVctTJXOJ73bs1FR61bXKRzUCmraJxYrJ3Q';
+var _applyingServerState=false,_lastServerUpdatedAt='';
 
 function wsConnect(onReadyCb){
   fetch(GLOBAL_STATE_URL,{cache:'no-store'}).then(function(r){return r.json();}).then(function(msg){
     if(msg&&msg.now&&window.__SERVER_TIME_SYNC__)window.__SERVER_TIME_SYNC__(msg.now);
-    if(msg&&msg.state)_applyServerState(msg.state);
+    if(msg&&msg.state){
+      if(msg.updatedAt&&msg.updatedAt===_lastServerUpdatedAt){if(onReadyCb)onReadyCb();return;}
+      _lastServerUpdatedAt=msg.updatedAt||String(Date.now());
+      _applyServerState(msg.state);
+    }
     if(onReadyCb)onReadyCb();
   }).catch(function(){log('Estado central indisponível — usando cache local');if(onReadyCb)onReadyCb();});
 }
+function startGlobalStateSync(){
+  if(_syncTimer)return;
+  _syncTimer=setInterval(function(){if(STATE_READY)wsConnect();},2500);
+}
 function _applyServerState(msg){
   try{
+    _applyingServerState=true;
     if(msg.ops    )localStorage.setItem(LS_KEY,    msg.ops    );
     if(msg.hist   )localStorage.setItem(LS_HIST,   msg.hist   );
     if(msg.state  )localStorage.setItem(LS_STATE,  msg.state  );
@@ -1320,7 +1330,7 @@ function _applyServerState(msg){
     ops=[];gId=0;emitted={};closed={};
     loadOps();reconcileOpenOps();purgeInvalidOps();recalcLossStreak();
     renderOps();renderHist();renderStats();renderDailyTfCards();updateRates();
-  }catch(ex){log('Erro estado: '+ex.message);}
+  }catch(ex){log('Erro estado: '+ex.message);}finally{_applyingServerState=false;}
 }
 function _applyPlan(plan,subId){
   USER_PLAN=plan;localStorage.setItem('btc_plan',plan);
@@ -1347,6 +1357,7 @@ function saveOps(){
     localStorage.setItem(LS_HIST,JSON.stringify(histToSave));
     localStorage.setItem(LS_STATE,JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}));
     localStorage.setItem(LS_EMITTED,JSON.stringify(emitted));
+    if(_applyingServerState)return;
     clearTimeout(_wsSyncTimer);
     _wsSyncTimer=setTimeout(function(){_wsSendState();},800);
   }catch(e){}
