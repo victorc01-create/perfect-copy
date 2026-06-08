@@ -99,6 +99,9 @@
       applyOffset(serverNow - t1);
     }).catch(function(){});
   }
+  window.__SERVER_TIME_SYNC__ = function(serverNow){
+    if(typeof serverNow==='number')applyOffset(serverNow-_origNow());
+  };
   patch();
   sync();
   // Re-sync periodically to handle drift
