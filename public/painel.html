@@ -2343,6 +2343,7 @@ function render(){
         }
         if(!frozenEntry||frozenEntry<=0){frozenEntry=sigSnap.price||0;}
         gId++;
+        emitted[_pKey2]={id:gId,entryPrice:frozenEntry,entryTs:periodStart,entryAt:now,emittedAt:now};
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:(sigSnap.dir==='CALL'?'call':sigSnap.dir==='PUT'?'put':'wait'),
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
