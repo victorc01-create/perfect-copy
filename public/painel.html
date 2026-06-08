@@ -1278,7 +1278,7 @@ function rebuildEmitted(){
       var d=new Date(ps);d.setUTCHours(0,0,0,0);
       var pIdx=Math.floor((ps-d.getTime())/(TF[tf].min*60000));
       var pKey=tf+':'+pIdx;
-      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,emittedAt:ps};
+      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,entryAt:opEntryTime(o),emittedAt:signalDelayStart(o)};
     });
   });
 }
@@ -1877,7 +1877,7 @@ function checkSignals(){
       saveOps();changed=true;
     } else if(tfOpenOp&&!emitted[pKey]){
       /* Op aberta mas emitted perdeu o registro (ex: reload) — reconstrói */
-      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,emittedAt:signalDelayStart(tfOpenOp)};
+      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,entryAt:opEntryTime(tfOpenOp),emittedAt:signalDelayStart(tfOpenOp)};
       saveOps();
     }
     var eRec=emitted[pKey];if(!eRec)return;
