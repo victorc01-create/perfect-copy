@@ -1283,12 +1283,15 @@ function rebuildEmitted(){
   });
 }
 function signalDelayStart(op){
+  if(op&&op.emittedAt)return op.emittedAt;
   if(op&&op.tf&&TF[op.tf]&&op.entryTs)return aStart(op.entryTs,TF[op.tf].min);
   return op&&op.emittedAt?op.emittedAt:(op&&op.entryTs?op.entryTs:Date.now());
 }
 function signalReleaseAt(op){return signalDelayStart(op)+DELAY_MS;}
+function opEntryTime(op){return op&&op.entryAt?op.entryAt:(op&&op.entryTs?op.entryTs:Date.now());}
 function normalizeSignalTimes(){
   ops.forEach(function(o){
+    if(o.live===true&&o.entryTs&&!o.entryAt)o.entryAt=o.entryTs;
     if(o.live===true&&o.tf&&TF[o.tf]&&o.entryTs)o.emittedAt=signalDelayStart(o);
   });
 }
