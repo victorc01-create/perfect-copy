@@ -122,9 +122,19 @@ export const Route = createFileRoute("/api/public/btc-state")({
           .maybeSingle();
         const currentState = ((current as StoredState | null)?.state ?? {}) as Partial<Record<string, string>>;
 
+        const mergedHist = mergeById(currentState.hist, parsed.hist);
+        const closedIds = new Set(
+          (parseJson(mergedHist, []) as JsonRecord[])
+            .filter((o) => o?.live === false || o?.status === "win" || o?.status === "loss")
+            .map((o) => String(o.id)),
+        );
+        const mergedOps = (parseJson(mergeById(currentState.ops, parsed.ops), []) as JsonRecord[]).filter(
+          (o) => !closedIds.has(String(o.id)),
+        );
+
         const state = {
-          ops: mergeById(currentState.ops, parsed.ops),
-          hist: mergeById(currentState.hist, parsed.hist),
+          ops: JSON.stringify(mergedOps),
+          hist: mergedHist,
           state: mergeState(currentState.state, parsed.state),
           emitted: mergeEmitted(currentState.emitted, parsed.emitted),
         };
