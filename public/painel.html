@@ -1842,7 +1842,7 @@ function checkSignals(){
       /* Sem op aberta e período ainda não emitido → abre nova op */
       gId++;tfId[tf]++;
       var id=gId,tN=tfId[tf];
-      /* entryTs = início FIXO do período — igual para todos os usuários */
+      /* entryTs mantém o ciclo fixo; entryAt é a hora exata em que a operação abriu */
       var periodStart=aStart(now,TF[tf].min);
       /* Preço de entrada = open do candle do período atual (fixo na Binance, igual para todos) */
       var frozenEntry=0;
@@ -1864,11 +1864,10 @@ function checkSignals(){
         frozenEntry=best1m.open;
       }
       if(!frozenEntry||frozenEntry<=0){log('⚠️ Sem preço para '+tf+' — op aguardando');gId--;tfId[tf]--;return;}
-      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,emittedAt:periodStart};
+      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,entryAt:now,emittedAt:now};
       var op={id:id,tfNum:tN,tf:tf,dir:sig.dir,color:(sig.dir==='CALL'?'call':sig.dir==='PUT'?'put':'wait'),conf:sig.conf,score:sig.score,
         entryPrice:frozenEntry,entryTs:periodStart,exitTs:aEnd(periodStart,TF[tf].min),
-        /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
-        emittedAt:periodStart,
+        entryAt:now,emittedAt:now,
         exitPrice:null,status:'open',win:null,pnl:null,live:true};
       ops.unshift(op);
       tfOpenOp=op;
@@ -1962,7 +1961,7 @@ function renderOps(){
       '<div class="aodt '+(isC?'aocac':'aocap')+'">'+dirLabel(op.dir)+'</div>'+
       '<div class="aoi">'+
         '<div class="aotl">'+TF[op.tf].label+' &nbsp;·&nbsp; Score: '+op.score+'pts &nbsp;·&nbsp; '+op.conf+'</div>'+
-        '<div class="aorw">Entrada: '+fP(op.entryPrice)+' &nbsp;·&nbsp; '+fT(op.entryTs)+'</div>'+
+        '<div class="aorw">Entrada: '+fP(op.entryPrice)+' &nbsp;·&nbsp; '+fT(opEntryTime(op))+'</div>'+
         '<div class="aorw">Saída prev.: '+fT(op.exitTs)+(op.exitPrice?' &nbsp;·&nbsp; '+fP(op.exitPrice):'')+'</div>'+
       '</div>'+
       '<div class="aosl">'+sbadge+timer+'</div>'+
@@ -2025,7 +2024,7 @@ function renderHist(){
       '<td><span class="tfn">'+histTf+' #'+tfNum+'</span></td>'+
       '<td style="color:var(--text3)">'+fD(o.entryTs)+'</td>'+
       '<td>'+dirB+'</td>'+
-      '<td style="color:var(--text2)">'+fT(o.entryTs)+'</td>'+
+      '<td style="color:var(--text2)">'+fT(opEntryTime(o))+'</td>'+
       '<td style="color:var(--text2);font-size:10px">'+(o.entryPrice>0?fP(o.entryPrice):'<span style="color:var(--text3)">—</span>')+'</td>'+
       '<td style="color:var(--text3)">'+fT(o.exitTs)+'</td>'+
       '<td id="xp'+o.id+'" style="font-size:10px">'+xpCell+'</td>'+
