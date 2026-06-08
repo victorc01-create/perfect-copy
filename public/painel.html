@@ -2322,7 +2322,7 @@ function render(){
         /* GUARD 2: só abre se ainda está dentro da janela de entrada (antes de 2min antes de 2/3) */
         var _w=getWin(tfSnap);
         if(!_w.inEntryWindow){return;}
-        /* entryTs = início FIXO do período — mesmo para todos os usuários */
+        /* entryTs mantém o ciclo fixo; entryAt é a hora exata em que a operação abriu */
         var periodStart=aStart(now,TF[tfSnap].min);
         /* Preço de entrada = open do candle do período (fixo na Binance, igual para todos) */
         var frozenEntry=0;
@@ -2346,8 +2346,7 @@ function render(){
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:(sigSnap.dir==='CALL'?'call':sigSnap.dir==='PUT'?'put':'wait'),
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
-          /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
-          emittedAt:periodStart,
+          entryAt:now,emittedAt:now,
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
