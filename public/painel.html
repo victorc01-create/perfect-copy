@@ -3123,8 +3123,10 @@ function _fakeOnlineCount(){
   else if(h>=18&&h<22)base=1120;/* noite pico EUA */
   else if(h>=22||h<2)base=740;  /* madrugada */
   else base=310;                 /* madrugada baixa */
-  /* Variação aleatória ±8% a cada chamada */
-  var jitter=Math.floor(base*(0.92+Math.random()*0.16));
+  /* Variação determinística por janela de 30s — igual para todos os usuários */
+  var bucket=Math.floor(Date.now()/30000);
+  var seed=(bucket*9301+49297)%233280;
+  var jitter=Math.floor(base*(0.92+(seed/233280)*0.16));
   return jitter;
 }
 function updateGlobalBar(){
