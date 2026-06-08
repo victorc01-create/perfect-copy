@@ -99,6 +99,9 @@
       applyOffset(serverNow - t1);
     }).catch(function(){});
   }
+  window.__SERVER_TIME_SYNC__ = function(serverNow){
+    if(typeof serverNow==='number')applyOffset(serverNow-_origNow());
+  };
   patch();
   sync();
   // Re-sync periodically to handle drift
@@ -1278,17 +1281,20 @@ function rebuildEmitted(){
       var d=new Date(ps);d.setUTCHours(0,0,0,0);
       var pIdx=Math.floor((ps-d.getTime())/(TF[tf].min*60000));
       var pKey=tf+':'+pIdx;
-      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,emittedAt:ps};
+      if(!emitted[pKey])emitted[pKey]={id:o.id,entryPrice:o.entryPrice,entryTs:ps,entryAt:opEntryTime(o),emittedAt:signalDelayStart(o)};
     });
   });
 }
 function signalDelayStart(op){
+  if(op&&op.emittedAt)return op.emittedAt;
   if(op&&op.tf&&TF[op.tf]&&op.entryTs)return aStart(op.entryTs,TF[op.tf].min);
   return op&&op.emittedAt?op.emittedAt:(op&&op.entryTs?op.entryTs:Date.now());
 }
 function signalReleaseAt(op){return signalDelayStart(op)+DELAY_MS;}
+function opEntryTime(op){return op&&op.entryAt?op.entryAt:(op&&op.entryTs?op.entryTs:Date.now());}
 function normalizeSignalTimes(){
   ops.forEach(function(o){
+    if(o.live===true&&o.entryTs&&!o.entryAt)o.entryAt=o.entryTs;
     if(o.live===true&&o.tf&&TF[o.tf]&&o.entryTs)o.emittedAt=signalDelayStart(o);
   });
 }
@@ -1300,16 +1306,26 @@ var _syncTimer=null;
 var _wsReady=true,_wsSyncTimer=null;
 var GLOBAL_STATE_URL='/api/public/btc-state';
 var GLOBAL_STATE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eXR5YmxvdWx2cWtmaXp6dmZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NDQzNDMsImV4cCI6MjA5NjAyMDM0M30.HOHKYGMilVctTJXOJ73bs1FR61bXKRzUCmraJxYrJ3Q';
+var _applyingServerState=false,_lastServerUpdatedAt='';
 
 function wsConnect(onReadyCb){
   fetch(GLOBAL_STATE_URL,{cache:'no-store'}).then(function(r){return r.json();}).then(function(msg){
     if(msg&&msg.now&&window.__SERVER_TIME_SYNC__)window.__SERVER_TIME_SYNC__(msg.now);
-    if(msg&&msg.state)_applyServerState(msg.state);
+    if(msg&&msg.state){
+      if(msg.updatedAt&&msg.updatedAt===_lastServerUpdatedAt){if(onReadyCb)onReadyCb();return;}
+      _lastServerUpdatedAt=msg.updatedAt||String(Date.now());
+      _applyServerState(msg.state);
+    }
     if(onReadyCb)onReadyCb();
   }).catch(function(){log('Estado central indisponível — usando cache local');if(onReadyCb)onReadyCb();});
 }
+function startGlobalStateSync(){
+  if(_syncTimer)return;
+  _syncTimer=setInterval(function(){if(STATE_READY)wsConnect();},2500);
+}
 function _applyServerState(msg){
   try{
+    _applyingServerState=true;
     if(msg.ops    )localStorage.setItem(LS_KEY,    msg.ops    );
     if(msg.hist   )localStorage.setItem(LS_HIST,   msg.hist   );
     if(msg.state  )localStorage.setItem(LS_STATE,  msg.state  );
@@ -1317,7 +1333,7 @@ function _applyServerState(msg){
     ops=[];gId=0;emitted={};closed={};
     loadOps();reconcileOpenOps();purgeInvalidOps();recalcLossStreak();
     renderOps();renderHist();renderStats();renderDailyTfCards();updateRates();
-  }catch(ex){log('Erro estado: '+ex.message);}
+  }catch(ex){log('Erro estado: '+ex.message);}finally{_applyingServerState=false;}
 }
 function _applyPlan(plan,subId){
   USER_PLAN=plan;localStorage.setItem('btc_plan',plan);
@@ -1344,6 +1360,7 @@ function saveOps(){
     localStorage.setItem(LS_HIST,JSON.stringify(histToSave));
     localStorage.setItem(LS_STATE,JSON.stringify({gId:gId,tfId:tfId,closed:closed,lossStreak:_lossStreak}));
     localStorage.setItem(LS_EMITTED,JSON.stringify(emitted));
+    if(_applyingServerState)return;
     clearTimeout(_wsSyncTimer);
     _wsSyncTimer=setTimeout(function(){_wsSendState();},800);
   }catch(e){}
@@ -1828,7 +1845,7 @@ function checkSignals(){
       /* Sem op aberta e período ainda não emitido → abre nova op */
       gId++;tfId[tf]++;
       var id=gId,tN=tfId[tf];
-      /* entryTs = início FIXO do período — igual para todos os usuários */
+      /* entryTs mantém o ciclo fixo; entryAt é a hora exata em que a operação abriu */
       var periodStart=aStart(now,TF[tf].min);
       /* Preço de entrada = open do candle do período atual (fixo na Binance, igual para todos) */
       var frozenEntry=0;
@@ -1850,11 +1867,10 @@ function checkSignals(){
         frozenEntry=best1m.open;
       }
       if(!frozenEntry||frozenEntry<=0){log('⚠️ Sem preço para '+tf+' — op aguardando');gId--;tfId[tf]--;return;}
-      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,emittedAt:periodStart};
+      emitted[pKey]={id:id,entryPrice:frozenEntry,entryTs:periodStart,entryAt:now,emittedAt:now};
       var op={id:id,tfNum:tN,tf:tf,dir:sig.dir,color:(sig.dir==='CALL'?'call':sig.dir==='PUT'?'put':'wait'),conf:sig.conf,score:sig.score,
         entryPrice:frozenEntry,entryTs:periodStart,exitTs:aEnd(periodStart,TF[tf].min),
-        /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
-        emittedAt:periodStart,
+        entryAt:now,emittedAt:now,
         exitPrice:null,status:'open',win:null,pnl:null,live:true};
       ops.unshift(op);
       tfOpenOp=op;
@@ -1864,7 +1880,7 @@ function checkSignals(){
       saveOps();changed=true;
     } else if(tfOpenOp&&!emitted[pKey]){
       /* Op aberta mas emitted perdeu o registro (ex: reload) — reconstrói */
-      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,emittedAt:signalDelayStart(tfOpenOp)};
+      emitted[pKey]={id:tfOpenOp.id,entryPrice:tfOpenOp.entryPrice,entryTs:tfOpenOp.entryTs,entryAt:opEntryTime(tfOpenOp),emittedAt:signalDelayStart(tfOpenOp)};
       saveOps();
     }
     var eRec=emitted[pKey];if(!eRec)return;
@@ -1948,7 +1964,7 @@ function renderOps(){
       '<div class="aodt '+(isC?'aocac':'aocap')+'">'+dirLabel(op.dir)+'</div>'+
       '<div class="aoi">'+
         '<div class="aotl">'+TF[op.tf].label+' &nbsp;·&nbsp; Score: '+op.score+'pts &nbsp;·&nbsp; '+op.conf+'</div>'+
-        '<div class="aorw">Entrada: '+fP(op.entryPrice)+' &nbsp;·&nbsp; '+fT(op.entryTs)+'</div>'+
+        '<div class="aorw">Entrada: '+fP(op.entryPrice)+' &nbsp;·&nbsp; '+fT(opEntryTime(op))+'</div>'+
         '<div class="aorw">Saída prev.: '+fT(op.exitTs)+(op.exitPrice?' &nbsp;·&nbsp; '+fP(op.exitPrice):'')+'</div>'+
       '</div>'+
       '<div class="aosl">'+sbadge+timer+'</div>'+
@@ -2011,7 +2027,7 @@ function renderHist(){
       '<td><span class="tfn">'+histTf+' #'+tfNum+'</span></td>'+
       '<td style="color:var(--text3)">'+fD(o.entryTs)+'</td>'+
       '<td>'+dirB+'</td>'+
-      '<td style="color:var(--text2)">'+fT(o.entryTs)+'</td>'+
+      '<td style="color:var(--text2)">'+fT(opEntryTime(o))+'</td>'+
       '<td style="color:var(--text2);font-size:10px">'+(o.entryPrice>0?fP(o.entryPrice):'<span style="color:var(--text3)">—</span>')+'</td>'+
       '<td style="color:var(--text3)">'+fT(o.exitTs)+'</td>'+
       '<td id="xp'+o.id+'" style="font-size:10px">'+xpCell+'</td>'+
@@ -2309,7 +2325,7 @@ function render(){
         /* GUARD 2: só abre se ainda está dentro da janela de entrada (antes de 2min antes de 2/3) */
         var _w=getWin(tfSnap);
         if(!_w.inEntryWindow){return;}
-        /* entryTs = início FIXO do período — mesmo para todos os usuários */
+        /* entryTs mantém o ciclo fixo; entryAt é a hora exata em que a operação abriu */
         var periodStart=aStart(now,TF[tfSnap].min);
         /* Preço de entrada = open do candle do período (fixo na Binance, igual para todos) */
         var frozenEntry=0;
@@ -2330,11 +2346,11 @@ function render(){
         }
         if(!frozenEntry||frozenEntry<=0){frozenEntry=sigSnap.price||0;}
         gId++;
+        emitted[_pKey2]={id:gId,entryPrice:frozenEntry,entryTs:periodStart,entryAt:now,emittedAt:now};
         var op={id:gId,tf:tfSnap,dir:sigSnap.dir,color:(sigSnap.dir==='CALL'?'call':sigSnap.dir==='PUT'?'put':'wait'),
           conf:sigSnap.conf,score:sigSnap.score,entryPrice:frozenEntry,
           entryTs:periodStart,exitTs:aEnd(periodStart,TF[tfSnap].min),
-          /* emittedAt determinístico: início fixo do ciclo — mesmo instante para todos os usuários */
-          emittedAt:periodStart,
+          entryAt:now,emittedAt:now,
           exitPrice:null,status:'open',win:null,pnl:null,live:true};
         ops.unshift(op);saveOps();
         /* releaseAt = emittedAt + DELAY_MS — igual para todos */
@@ -2551,7 +2567,7 @@ function showPixPayment(){
 /* Handle sinal FREE vs PREMIUM */
 function handleSignalFreePremium(op,now){
   if(isPremium()){
-    toast('ten','⚡ #'+op.id+' — '+dirLabel(op.dir)+' ('+TF[op.tf].label+')',fT(op.entryTs)+' · '+fP(op.entryPrice)+' · Score: '+op.score+'pts · '+op.conf);
+    toast('ten','⚡ #'+op.id+' — '+dirLabel(op.dir)+' ('+TF[op.tf].label+')',fT(opEntryTime(op))+' · '+fP(op.entryPrice)+' · Score: '+op.score+'pts · '+op.conf);
     return;
   }
   /* releaseAt = momento real da emissão + DELAY_MS — igual para todos */
@@ -2642,7 +2658,7 @@ function revealFreeSignal(op){
     var isCall=op.dir==='CALL';
     if(arrowEl)arrowEl.textContent=isCall?'▲':'▼';
     if(dirEl){dirEl.textContent=dirLabel(op.dir);dirEl.className='fo-reveal-dir '+(isCall?'call':'put');}
-    if(metaEl)metaEl.innerHTML=TF[op.tf].label+' · Score: <b>'+op.score+' pts</b> · Conf. '+op.conf+'<br>Entrada: <b>'+fP(op.entryPrice)+'</b> às '+fT(op.entryTs)+'<br><span style="color:#bbb;font-size:10px">Upgrade Premium para ver na hora</span>';
+    if(metaEl)metaEl.innerHTML=TF[op.tf].label+' · Score: <b>'+op.score+' pts</b> · Conf. '+op.conf+'<br>Entrada: <b>'+fP(op.entryPrice)+'</b> às '+fT(opEntryTime(op))+'<br><span style="color:#bbb;font-size:10px">Upgrade Premium para ver na hora</span>';
     beepEntry();
   }else{
     /* Janela fechou durante os 60s de ocultação — sinal não pode ser usado */
@@ -3110,8 +3126,10 @@ function _fakeOnlineCount(){
   else if(h>=18&&h<22)base=1120;/* noite pico EUA */
   else if(h>=22||h<2)base=740;  /* madrugada */
   else base=310;                 /* madrugada baixa */
-  /* Variação aleatória ±8% a cada chamada */
-  var jitter=Math.floor(base*(0.92+Math.random()*0.16));
+  /* Variação determinística por janela de 30s — igual para todos os usuários */
+  var bucket=Math.floor(Date.now()/30000);
+  var seed=(bucket*9301+49297)%233280;
+  var jitter=Math.floor(base*(0.92+(seed/233280)*0.16));
   return jitter;
 }
 function updateGlobalBar(){
@@ -3165,6 +3183,7 @@ loadOpsFromServer(function(){
   }else{_setFOA(false);}
   /* end if(!isPremium) */
   updatePlanBadge();
+  startGlobalStateSync();
 });
 var _strtbActive=document.querySelector('.strtb.active');if(_strtbActive)selStrat('ema',_strtbActive);
 

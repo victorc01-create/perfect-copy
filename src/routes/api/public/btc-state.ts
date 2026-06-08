@@ -17,6 +17,8 @@ type StoredState = {
   updated_at?: string | null;
 };
 
+type JsonRecord = Record<string, unknown>;
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -57,32 +59,84 @@ export const Route = createFileRoute("/api/public/btc-state")({
           return json({ error: "Invalid payload" }, 400);
         }
 
-        const dedupById = (raw: string | undefined, fallback: string) => {
+        const parseJson = (raw: string | undefined, fallback: unknown) => {
           if (!raw) return fallback;
           try {
-            const arr = JSON.parse(raw);
-            if (!Array.isArray(arr)) return raw;
-            const seen = new Set<string>();
-            const out: unknown[] = [];
-            for (const o of arr) {
-              const id = (o as { id?: unknown })?.id;
-              if (id == null) continue;
-              const k = String(id);
-              if (seen.has(k)) continue;
-              seen.add(k);
-              out.push(o);
-            }
-            return JSON.stringify(out);
+            return JSON.parse(raw);
           } catch {
-            return raw;
+            return fallback;
           }
         };
+        const mergeById = (oldRaw: string | undefined, newRaw: string | undefined) => {
+          const statusRank: Record<string, number> = { wait: 0, open: 1, pending_close: 2, win: 3, loss: 3 };
+          const map = new Map<string, JsonRecord>();
+          const add = (arr: unknown) => {
+            if (!Array.isArray(arr)) return;
+            for (const item of arr) {
+              const o = item as JsonRecord;
+              const id = o?.id;
+              if (id == null) continue;
+              const k = String(id);
+              const prev = map.get(k);
+              if (!prev) {
+                map.set(k, o);
+                continue;
+              }
+              const prevRank = statusRank[String(prev.status ?? "")] ?? 0;
+              const nextRank = statusRank[String(o.status ?? "")] ?? 0;
+              const merged = { ...prev, ...o, entryAt: o.entryAt ?? prev.entryAt, emittedAt: o.emittedAt ?? prev.emittedAt };
+              map.set(k, nextRank >= prevRank ? merged : { ...o, ...prev, entryAt: prev.entryAt ?? o.entryAt, emittedAt: prev.emittedAt ?? o.emittedAt });
+            }
+          };
+          add(parseJson(oldRaw, []));
+          add(parseJson(newRaw, []));
+          return JSON.stringify([...map.values()]);
+        };
+        const mergeState = (oldRaw: string | undefined, newRaw: string | undefined) => {
+          const oldState = parseJson(oldRaw, {}) as JsonRecord;
+          const newState = parseJson(newRaw, {}) as JsonRecord;
+          return JSON.stringify({
+            ...oldState,
+            ...newState,
+            gId: Math.max(Number(oldState.gId ?? 0), Number(newState.gId ?? 0)),
+            tfId: { ...((oldState.tfId as JsonRecord) ?? {}), ...((newState.tfId as JsonRecord) ?? {}) },
+            closed: { ...((oldState.closed as JsonRecord) ?? {}), ...((newState.closed as JsonRecord) ?? {}) },
+            lossStreak: { ...((oldState.lossStreak as JsonRecord) ?? {}), ...((newState.lossStreak as JsonRecord) ?? {}) },
+          });
+        };
+        const mergeEmitted = (oldRaw: string | undefined, newRaw: string | undefined) => {
+          const oldEmitted = parseJson(oldRaw, {}) as Record<string, JsonRecord>;
+          const newEmitted = parseJson(newRaw, {}) as Record<string, JsonRecord>;
+          const out: Record<string, JsonRecord> = { ...oldEmitted };
+          for (const [key, value] of Object.entries(newEmitted)) {
+            const prev = out[key];
+            out[key] = prev ? { ...prev, ...value, entryAt: value.entryAt ?? prev.entryAt, emittedAt: value.emittedAt ?? prev.emittedAt } : value;
+          }
+          return JSON.stringify(out);
+        };
+
+        const { data: current } = await supabaseAdmin
+          .from("btc_global_state" as never)
+          .select("state")
+          .eq("key", "main")
+          .maybeSingle();
+        const currentState = ((current as StoredState | null)?.state ?? {}) as Partial<Record<string, string>>;
+
+        const mergedHist = mergeById(currentState.hist, parsed.hist);
+        const closedIds = new Set(
+          (parseJson(mergedHist, []) as JsonRecord[])
+            .filter((o) => o?.live === false || o?.status === "win" || o?.status === "loss")
+            .map((o) => String(o.id)),
+        );
+        const mergedOps = (parseJson(mergeById(currentState.ops, parsed.ops), []) as JsonRecord[]).filter(
+          (o) => !closedIds.has(String(o.id)),
+        );
 
         const state = {
-          ops: dedupById(parsed.ops, "[]"),
-          hist: dedupById(parsed.hist, "[]"),
-          state: parsed.state ?? "{}",
-          emitted: parsed.emitted ?? "{}",
+          ops: JSON.stringify(mergedOps),
+          hist: mergedHist,
+          state: mergeState(currentState.state, parsed.state),
+          emitted: mergeEmitted(currentState.emitted, parsed.emitted),
         };
 
 
