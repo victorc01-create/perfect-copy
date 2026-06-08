@@ -2564,7 +2564,7 @@ function showPixPayment(){
 /* Handle sinal FREE vs PREMIUM */
 function handleSignalFreePremium(op,now){
   if(isPremium()){
-    toast('ten','⚡ #'+op.id+' — '+dirLabel(op.dir)+' ('+TF[op.tf].label+')',fT(op.entryTs)+' · '+fP(op.entryPrice)+' · Score: '+op.score+'pts · '+op.conf);
+    toast('ten','⚡ #'+op.id+' — '+dirLabel(op.dir)+' ('+TF[op.tf].label+')',fT(opEntryTime(op))+' · '+fP(op.entryPrice)+' · Score: '+op.score+'pts · '+op.conf);
     return;
   }
   /* releaseAt = momento real da emissão + DELAY_MS — igual para todos */
@@ -2655,7 +2655,7 @@ function revealFreeSignal(op){
     var isCall=op.dir==='CALL';
     if(arrowEl)arrowEl.textContent=isCall?'▲':'▼';
     if(dirEl){dirEl.textContent=dirLabel(op.dir);dirEl.className='fo-reveal-dir '+(isCall?'call':'put');}
-    if(metaEl)metaEl.innerHTML=TF[op.tf].label+' · Score: <b>'+op.score+' pts</b> · Conf. '+op.conf+'<br>Entrada: <b>'+fP(op.entryPrice)+'</b> às '+fT(op.entryTs)+'<br><span style="color:#bbb;font-size:10px">Upgrade Premium para ver na hora</span>';
+    if(metaEl)metaEl.innerHTML=TF[op.tf].label+' · Score: <b>'+op.score+' pts</b> · Conf. '+op.conf+'<br>Entrada: <b>'+fP(op.entryPrice)+'</b> às '+fT(opEntryTime(op))+'<br><span style="color:#bbb;font-size:10px">Upgrade Premium para ver na hora</span>';
     beepEntry();
   }else{
     /* Janela fechou durante os 60s de ocultação — sinal não pode ser usado */
